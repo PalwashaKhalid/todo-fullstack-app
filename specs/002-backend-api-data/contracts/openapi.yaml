@@ -1,0 +1,470 @@
+openapi: 3.0.3
+info:
+  title: Task Management API
+  description: |
+    RESTful API for task management with JWT-based authentication and per-user data isolation.
+
+    **Security**: All endpoints require JWT authentication via Bearer token in Authorization header.
+
+    **Data Isolation**: Users can only access their own tasks. All operations are scoped to the authenticated user.
+  version: 1.0.0
+  contact:
+    name: Backend API Support
+
+servers:
+  - url: http://localhost:8001
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: tasks
+    description: Task CRUD operations
+
+paths:
+  /api/tasks:
+    post:
+      tags:
+        - tasks
+      summary: Create a new task
+      description: Creates a new task for the authenticated user
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+            examples:
+              simple:
+                summary: Simple task
+                value:
+                  title: "Buy groceries"
+                  description: "Milk, eggs, bread"
+              minimal:
+                summary: Task without description
+                value:
+                  title: "Quick reminder"
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+              example:
+                success: true
+                data:
+                  id: 123
+                  user_id: 456
+                  title: "Buy groceries"
+                  description: "Milk, eggs, bread"
+                  completed: false
+                  created_at: "2026-02-06T10:30:00Z"
+                  updated_at: "2026-02-06T10:30:00Z"
+                message: "Task created successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags:
+        - tasks
+      summary: List all tasks for authenticated user
+      description: Retrieves all tasks belonging to the authenticated user, ordered by creation date (newest first)
+      operationId: listTasks
+      parameters:
+        - name: completed
+          in: query
+          description: Filter tasks by completion status
+          required: false
+          schema:
+            type: boolean
+          example: false
+      responses:
+        '200':
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+              example:
+                success: true
+                data:
+                  - id: 123
+                    user_id: 456
+                    title: "Buy groceries"
+                    description: "Milk, eggs, bread"
+                    completed: false
+                    created_at: "2026-02-06T10:30:00Z"
+                    updated_at: "2026-02-06T10:30:00Z"
+                  - id: 124
+                    user_id: 456
+                    title: "Call dentist"
+                    description: null
+                    completed: true
+                    created_at: "2026-02-06T09:15:00Z"
+                    updated_at: "2026-02-06T11:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/tasks/{task_id}:
+    get:
+      tags:
+        - tasks
+      summary: Get a specific task
+      description: Retrieves a single task by ID. User must own the task.
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                success: true
+                data:
+                  id: 123
+                  user_id: 456
+                  title: "Buy groceries"
+                  description: "Milk, eggs, bread"
+                  completed: false
+                  created_at: "2026-02-06T10:30:00Z"
+                  updated_at: "2026-02-06T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - tasks
+      summary: Update a task
+      description: Updates a task's title and description. User must own the task.
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+            example:
+              title: "Buy groceries and cook dinner"
+              description: "Milk, eggs, bread, chicken, vegetables"
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                success: true
+                data:
+                  id: 123
+                  user_id: 456
+                  title: "Buy groceries and cook dinner"
+                  description: "Milk, eggs, bread, chicken, vegetables"
+                  completed: false
+                  created_at: "2026-02-06T10:30:00Z"
+                  updated_at: "2026-02-06T12:45:00Z"
+                message: "Task updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - tasks
+      summary: Delete a task
+      description: Permanently deletes a task. User must own the task.
+      operationId: deleteTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '204':
+          description: Task deleted successfully (no content)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/tasks/{task_id}/status:
+    patch:
+      tags:
+        - tasks
+      summary: Toggle task completion status
+      description: Updates only the completion status of a task. User must own the task.
+      operationId: updateTaskStatus
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskStatusUpdate'
+            example:
+              completed: true
+      responses:
+        '200':
+          description: Task status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                success: true
+                data:
+                  id: 123
+                  user_id: 456
+                  title: "Buy groceries"
+                  description: "Milk, eggs, bread"
+                  completed: true
+                  created_at: "2026-02-06T10:30:00Z"
+                  updated_at: "2026-02-06T13:00:00Z"
+                message: "Task status updated successfully"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Better Auth authentication service
+
+  parameters:
+    TaskId:
+      name: task_id
+      in: path
+      description: Unique task identifier
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      example: 123
+
+  schemas:
+    TaskCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Task title (required, 1-200 characters)
+          example: "Buy groceries"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Optional task description (max 2000 characters)
+          example: "Milk, eggs, bread"
+
+    TaskUpdate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Updated task title (required, 1-200 characters)
+          example: "Buy groceries and cook dinner"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Updated task description (max 2000 characters)
+          example: "Milk, eggs, bread, chicken"
+
+    TaskStatusUpdate:
+      type: object
+      required:
+        - completed
+      properties:
+        completed:
+          type: boolean
+          description: Task completion status
+          example: true
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique task identifier
+          example: 123
+        user_id:
+          type: integer
+          description: Owner user identifier
+          example: 456
+        title:
+          type: string
+          description: Task title
+          example: "Buy groceries"
+        description:
+          type: string
+          nullable: true
+          description: Task description
+          example: "Milk, eggs, bread"
+        completed:
+          type: boolean
+          description: Task completion status
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: Task creation timestamp (UTC)
+          example: "2026-02-06T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (UTC)
+          example: "2026-02-06T10:30:00Z"
+
+    TaskResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Task'
+        message:
+          type: string
+          example: "Task retrieved successfully"
+
+    TaskCreateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Task'
+        message:
+          type: string
+          example: "Task created successfully"
+
+    TaskListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Task not found"
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            emptyTitle:
+              summary: Empty title
+              value:
+                detail: "Title cannot be empty"
+            titleTooLong:
+              summary: Title too long
+              value:
+                detail: "Title must be 200 characters or less"
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missingToken:
+              summary: Missing token
+              value:
+                detail: "Not authenticated"
+            invalidToken:
+              summary: Invalid token
+              value:
+                detail: "Invalid token"
+            expiredToken:
+              summary: Expired token
+              value:
+                detail: "Token expired"
+
+    Forbidden:
+      description: Forbidden - user does not own the resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Not authorized to access this task"
+
+    NotFound:
+      description: Not found - resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Task not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Internal server error"
