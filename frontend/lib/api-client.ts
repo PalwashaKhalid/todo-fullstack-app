@@ -49,7 +49,7 @@ export class ApiClient {
       if (response.status === 204) {
         return {
           success: true,
-          data: null,
+          data: undefined,
           message: 'Success',
         };
       }
