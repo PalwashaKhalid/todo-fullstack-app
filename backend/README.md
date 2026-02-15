@@ -1,3 +1,13 @@
+---
+title: Todo App Backend API
+emoji: 📝
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+license: mit
+---
+
 # Todo API Backend
 
 Secure multi-user task management API built with FastAPI, SQLModel, and Neon Serverless PostgreSQL.
